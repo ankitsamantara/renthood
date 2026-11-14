@@ -1,0 +1,38 @@
+[
+  {
+    "slug": "kids-toys",
+    "name": "Kids Toys",
+    "shortName": "Toys",
+    "tagline": "Outgrown in a season. Loved for years.",
+    "description": "Ride-ons, wooden sets, building blocks and open-ended play kits — cleaned and checked before every handover.",
+    "image": "/images/category-kids.webp",
+    "startingAt": 149,
+    "count": 128,
+    "accent": "butter",
+    "icon": "toy"
+  },
+  {
+    "slug": "board-games",
+    "name": "Board Games",
+    "shortName": "Games",
+    "tagline": "Game night, minus the shelf warmer.",
+    "description": "Family favourites, strategy classics and party boxes. All pieces counted, so game night actually happens.",
+    "image": "/images/category-board.webp",
+    "startingAt": 99,
+    "count": 74,
+    "accent": "coral",
+    "icon": "dice"
+  },
+  {
+    "slug": "diy-tools",
+    "name": "DIY & Tools",
+    "shortName": "DIY",
+    "tagline": "The drill you need for 20 minutes, not forever.",
+    "description": "Drills, hammers and home-repair kits for the small jobs. Safety-checked, with a quick handover guide.",
+    "image": "/images/category-diy.webp",
+    "startingAt": 149,
+    "count": 96,
+    "accent": "mint",
+    "icon": "hammer"
+  }
+]
