@@ -59,7 +59,7 @@ deploys by using **Supabase free tier**:
   `renthood-listing-images` bucket. Only the resulting public URL is stored in the
   database.
 - Uploaded images are optimised in the browser before upload (max width 1200px);
-  the server rejects files over 6 MB and accepts JPEG/PNG/WebP.
+  the server rejects files over 5 MB and accepts JPEG/PNG/WebP.
 - The service-role key stays server-side on Render. It is never sent to the
   browser.
 

@@ -128,8 +128,8 @@ export async function persistListingImage(image, listingId) {
 
   const mime = match[1].toLowerCase()
   const buffer = Buffer.from(match[2], 'base64')
-  if (buffer.length > 6 * 1024 * 1024) {
-    throw new Error('Image must be under 6 MB after optimisation')
+  if (buffer.length > 5 * 1024 * 1024) {
+    throw new Error('Image must be under 5 MB after optimisation')
   }
 
   const ext = mime.includes('jpeg') ? 'jpg' : mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'bin'
