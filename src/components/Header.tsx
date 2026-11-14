@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Logo } from './Logo'
 import { useApp } from '../store'
+import { whatsappLink } from '../lib'
 
 const neighbourhoods = ['All Bengaluru', 'Indiranagar', 'Koramangala', 'HSR Layout', 'Domlur', 'Jayanagar']
 
@@ -61,11 +62,15 @@ export function Header() {
         <div className="container announcement-inner">
           <p>
             <Sparkles size={14} />
-            <span>Founding host offer: zero listing fees for the first 50 hosts.</span>
+            <span>Private MVP beta · Cashfree sandbox · no real money is charged.</span>
           </p>
-          <Link to="/list">
-            Claim your spot <ArrowUpRight size={13} />
-          </Link>
+          <a
+            href={whatsappLink('Hi RentHood! I am testing the MVP and would like to share feedback.')}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Send feedback <ArrowUpRight size={13} />
+          </a>
         </div>
       </div>
 

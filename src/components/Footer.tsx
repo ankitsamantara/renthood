@@ -48,7 +48,7 @@ export function Footer() {
             <a href="#safety">Trust & safety</a>
             <a href="#faq">FAQs</a>
             <a href="mailto:hello@renthood.in">hello@renthood.in</a>
-            <a href="tel:+919876543210">+91 {DEMO_WHATSAPP_NUMBER.slice(2)}</a>
+            <a href={`tel:+${DEMO_WHATSAPP_NUMBER}`}>+{DEMO_WHATSAPP_NUMBER}</a>
           </div>
         </div>
 

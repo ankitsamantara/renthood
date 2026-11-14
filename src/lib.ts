@@ -8,7 +8,7 @@ export const categoryBySlug = Object.fromEntries(
 ) as Record<CategorySlug, Category>
 
 export const DEMO_WHATSAPP_NUMBER = (
-  import.meta.env.VITE_WHATSAPP_NUMBER || '919876543210'
+  import.meta.env.VITE_WHATSAPP_NUMBER || '919148738996'
 ).replace(/\D/g, '')
 
 export const PLATFORM_FEE_RATE = 0.06

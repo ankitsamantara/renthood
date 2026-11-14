@@ -19,7 +19,7 @@ import { CategoryIcon } from '../components/CategoryIcon'
 import { ListingCard } from '../components/ListingCard'
 import { EarningsCalculator } from '../components/EarningsCalculator'
 import { useApp } from '../store'
-import { categories, formatINR } from '../lib'
+import { categories, formatINR, whatsappLink } from '../lib'
 
 const featuredIds = [
   'diy-dewalt-drill',
@@ -436,7 +436,7 @@ export function Home() {
                 Everything you need to know before your first borrow or your first listing.
               </p>
               <a
-                href="https://wa.me/919876543210?text=Hi%20RentHood!%20I%20have%20a%20question."
+                href={whatsappLink('Hi RentHood! I have a question about the marketplace.')}
                 className="text-link"
                 target="_blank"
                 rel="noreferrer"

@@ -48,6 +48,44 @@ system.
 | --- | --- |
 | ![RentHood desktop listing](docs/renthood-listing.jpg) | ![RentHood mobile checkout](docs/renthood-checkout.jpg) |
 
+## Cloud MVP (Vercel, free tier)
+
+This repo is Vercel-ready:
+
+- Vite frontend is built into `dist/`.
+- API routes live in `api/*.js` and run as Vercel Functions.
+- Shared marketplace state is stored in a **private Vercel Blob** JSON document,
+  so listings and bookings survive across users and serverless instances.
+- Cashfree runs in **demo/sandbox mode** unless merchant keys are configured;
+  testers can complete bookings without any real payment.
+- `server/index.mjs` remains the local Express server for development; the
+  production Vercel path uses the same pricing and validation rules.
+
+### Deploy
+
+```bash
+npx vercel login
+npx vercel link --yes --project renthood-mvp
+
+# Create and connect a free private Blob store for shared state
+npx vercel blob create-store renthood-state --access private --yes \
+  --environment production --environment preview
+
+# Optional: configure WhatsApp and public app URL
+npx vercel env add VITE_WHATSAPP_NUMBER production   # 919148738996
+npx vercel env add PUBLIC_APP_URL production         # https://your-deployment.vercel.app
+
+npx vercel --prod
+```
+
+If the Blob store is missing, the API falls back to process memory: fine for a
+single local demo, **not** fine for multi-user testing. Check the deployed
+`/api/health` response for `"persistence": "vercel-blob"`.
+
+The app is deliberately auth-free for this MVP. Anyone with the link can browse,
+list and use the demo host dashboard. Treat it as a closed beta link, not a
+production marketplace.
+
 ## Run locally
 
 ```bash
@@ -72,6 +110,8 @@ npm start
 
 `npm start` serves the API and the built `dist/` folder on
 <http://localhost:8787>. Set `PORT` and `PUBLIC_APP_URL` for your deployment.
+The Vercel serverless API lives separately under `api/` and is used when deployed
+to Vercel.
 
 ---
 
@@ -124,7 +164,7 @@ Also move deposit handling to a Cashfree-verified payout/refund workflow.
 Set your support/host number in `.env` (international format, digits only):
 
 ```env
-VITE_WHATSAPP_NUMBER=919876543210
+VITE_WHATSAPP_NUMBER=919148738996
 ```
 
 The number is used to build `wa.me` links from:
