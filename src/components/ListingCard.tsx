@@ -17,7 +17,7 @@ export function ListingCard({ listing, compact = false }: { listing: Listing; co
         </Link>
         <div className="listing-card-badges">
           {listing.badge && !listing.isUserListing && <span className="listing-badge">{listing.badge}</span>}
-          {listing.isUserListing && <span className="listing-badge listing-badge-own">Your listing</span>}
+          {listing.isUserListing && <span className="listing-badge listing-badge-own">Community listing</span>}
         </div>
         <button
           type="button"

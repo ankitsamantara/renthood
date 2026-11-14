@@ -11,6 +11,12 @@ import {
 import seedData from '../shared/listings.json'
 import type { Booking, Listing, ListingDraft } from './types'
 import { newId } from './lib'
+import {
+  fetchSharedListings,
+  saveSharedBooking,
+  saveSharedListing,
+  sharedStoreEnabled,
+} from './mvpStore'
 
 const seedListings = seedData as unknown as Listing[]
 const LISTINGS_KEY = 'renthood:user-listings'
@@ -79,15 +85,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/listings')
-      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: { listings?: Listing[] }) => {
+
+    async function loadListings() {
+      try {
+        const response = await fetch('/api/listings')
+        if (!response.ok) throw new Error('API unavailable')
+        const data = (await response.json()) as { listings?: Listing[] }
         if (cancelled || !Array.isArray(data.listings)) return
         setRemoteListings(data.listings.filter((listing) => listing.isUserListing))
-      })
-      .catch(() => {
-        // The seeded catalogue is fully usable offline; user listings stay in local storage.
-      })
+      } catch {
+        // On the static beta host there is no API. Use the shared test store when
+        // configured; otherwise the seeded catalogue + local storage still works.
+        if (!sharedStoreEnabled) return
+        const shared = await fetchSharedListings()
+        if (!cancelled) setRemoteListings(shared)
+      }
+    }
+
+    loadListings()
     return () => {
       cancelled = true
     }
@@ -170,14 +185,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     setCustomListings((current) => [localListing, ...current])
 
+    let apiResponded = false
     try {
       const response = await fetch('/api/listings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...draft, owner: currentUser }),
       })
-      if (!response.ok) throw new Error('Could not sync listing')
-      const data = (await response.json()) as { listing?: Listing }
+      const contentType = response.headers.get('content-type') || ''
+      // On a static-only host, /api/* often returns index.html. Treat that as
+      // an unavailable API and fall through to local/shared storage.
+      if (!contentType.includes('application/json')) throw new Error('API unavailable')
+      apiResponded = true
+      const data = (await response.json()) as { listing?: Listing; error?: string }
+      if (!response.ok) throw new Error(data.error || 'Could not save the listing')
       if (data.listing) {
         setCustomListings((current) =>
           current.map((item) =>
@@ -186,8 +207,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         )
         return { ...data.listing, isUserListing: true }
       }
-    } catch {
-      // Keep the device-local listing. A later sync can retry when the API is available.
+    } catch (error) {
+      if (apiResponded) {
+        // The API is reachable but rejected the listing or image. Surface it so
+        // the host does not believe a failed image upload was published.
+        setCustomListings((current) => current.filter((item) => item.id !== localListing.id))
+        throw error
+      }
+      // The static beta host has no server API; publish to the shared test store
+      // when one is configured so other testers can see the listing.
+      if (sharedStoreEnabled) {
+        const shared = await saveSharedListing(localListing)
+        if (shared) {
+          setRemoteListings((current) => [shared, ...current.filter((item) => item.id !== shared.id)])
+          return shared
+        }
+      }
     }
 
     return localListing
@@ -195,6 +230,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addBooking = useCallback((booking: Booking) => {
     setBookings((current) => [booking, ...current.filter((item) => item.id !== booking.id)])
+    if (sharedStoreEnabled) {
+      saveSharedBooking(booking).catch(() => undefined)
+    }
   }, [])
 
   const getListing = useCallback(

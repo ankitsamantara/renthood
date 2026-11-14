@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: renthood
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: renthood-listing-images
+      - key: VITE_WHATSAPP_NUMBER
+        value: "919148738996"
+      - key: PUBLIC_APP_URL
+        value: https://renthood.onrender.com
+      - key: CASHFREE_ENV
+        value: sandbox

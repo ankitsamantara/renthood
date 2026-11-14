@@ -187,8 +187,12 @@ export function ListItem() {
       setPublished(listing)
       window.scrollTo({ top: 0, behavior: 'smooth' })
       notify('Your listing is live! Time to earn from it.')
-    } catch {
-      setError('Something went wrong while publishing. Please try again.')
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Something went wrong while publishing. Please try again.',
+      )
     } finally {
       setPublishing(false)
     }

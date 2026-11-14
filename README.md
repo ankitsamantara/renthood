@@ -32,9 +32,9 @@ prefilled **WhatsApp** message.
   caching.
 - **Responsive UI** — custom mobile navigation, filter bottom sheet, sticky
   booking card on desktop and a full-width booking-first layout on mobile.
-- **Local API persistence** — listings, demo orders and bookings are saved to
-  `server/db.json`. Wishlist, bookings and newly listed items also persist in
-  the browser.
+- **Durable API persistence** — with Supabase configured, listing metadata,
+  uploaded photo URLs, demo orders and bookings are stored in Postgres/Storage.
+  Without it, the Express server falls back to `server/db.json` for local work.
 
 Demo account: **Aarav Mehta** (`aarav.mehta@example.com`). No authentication is
 implemented — this is a front-end/product prototype, not a production identity
@@ -47,6 +47,67 @@ system.
 | Desktop listing | Mobile checkout |
 | --- | --- |
 | ![RentHood desktop listing](docs/renthood-listing.jpg) | ![RentHood mobile checkout](docs/renthood-checkout.jpg) |
+
+## Durable storage on Render (recommended)
+
+The current Render service can keep user listings and images across restarts and
+deploys by using **Supabase free tier**:
+
+- **Postgres** stores one small JSONB state document (`renthood_state.data`)
+  containing listing metadata, orders and bookings.
+- **Supabase Storage** stores the listing photos in a public
+  `renthood-listing-images` bucket. Only the resulting public URL is stored in the
+  database.
+- Uploaded images are optimised in the browser before upload (max width 1200px);
+  the server rejects files over 6 MB and accepts JPEG/PNG/WebP.
+- The service-role key stays server-side on Render. It is never sent to the
+  browser.
+
+Supabase's free tier is the cheapest practical option here because it includes
+both a database and object storage in one project. Free-tier limits apply (at the
+time of writing: 500 MB database and 1 GB file storage). For high image volume,
+the next step is Cloudflare R2 (10 GB free) + Neon/Postgres for metadata.
+
+### Set it up
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. Open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql).
+   This creates the state table, the public image bucket, the public-read policy
+   and an initial empty state row.
+3. Copy the **Project URL** and **service_role** secret from
+   **Project Settings → API**.
+4. Add these environment variables in Render → your service → Environment:
+   - `SUPABASE_URL` — e.g. `https://xxxx.supabase.co`
+   - `SUPABASE_SERVICE_ROLE_KEY` — the service_role key (server only)
+   - `SUPABASE_BUCKET` — `renthood-listing-images`
+   - `VITE_WHATSAPP_NUMBER` — `919148738996`
+   - `PUBLIC_APP_URL` — `https://renthood.onrender.com`
+5. Redeploy the service after pushing the new code.
+6. Check `https://renthood.onrender.com/api/health`. It should return:
+
+```json
+{
+  "ok": true,
+  "storage": {
+    "metadata": "supabase-postgres",
+    "images": "supabase-storage:renthood-listing-images"
+  }
+}
+```
+
+If it still says `local-json`, the environment variables are missing or the
+Render deploy has not picked them up. A JSONB state document is intentionally
+simple for a beta; split it into normalised tables when listing volume or
+concurrent write volume grows.
+
+The repo also includes [`render.yaml`](render.yaml) for a Blueprint-style
+deploy, though you can add the environment variables to the existing service
+instead.
+
+> **Note on the existing Render deployment:** the public URL is currently
+> running the initial prototype commit. Push the latest `main` branch (or let
+> Render auto-deploy it) after adding the Supabase variables. The workspace could
+> not push to GitHub because it does not have your GitHub credentials.
 
 ## Cloud MVP (Vercel, free tier)
 
@@ -188,8 +249,13 @@ shared/
   categories.json        # The only three categories
   listings.json          # Seed catalogue + host demo content
 server/
-  index.mjs              # Express API, Cashfree orders, verification, persistence
-  db.json                # Generated at runtime (gitignored)
+  index.mjs              # Express API, Cashfree orders, verification
+  persistence.mjs        # Supabase Postgres/Storage adapter + local JSON fallback
+  vercel/                # Shared Vercel serverless core
+  db.json                # Local fallback (gitignored)
+supabase/
+  schema.sql             # Durable state table + renthood-listing-images bucket
+render.yaml              # Render blueprint with env placeholders
 src/
   components/            # Header, cards, checkout modal, calculator, navigation
   pages/                 # Home, Browse, ListingDetail, ListItem, Dashboard,
@@ -223,6 +289,8 @@ This prototype intentionally ships without:
 - A production database (SQLite/Postgres) and object storage for photos
 - Cashfree webhook signature verification, refunds and payout KYC
 - Real-time availability calendars / double-booking prevention
+- Normalised SQL tables instead of the beta JSONB state document
+- Image moderation and orphaned-image cleanup
 - Dispute resolution, damage cover and insurance
 - Admin moderation queue for new listings
 

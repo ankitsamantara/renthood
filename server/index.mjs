@@ -5,14 +5,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import {
+  hasSupabase,
+  persistListingImage,
+  persistenceInfo,
+  readDb,
+  writeDb,
+} from './persistence.mjs'
 
 dotenv.config()
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
-const dbFile = process.env.RENTHOOD_DB_FILE
-  ? path.resolve(process.env.RENTHOOD_DB_FILE)
-  : path.join(__dirname, 'db.json')
 const seedListings = JSON.parse(fs.readFileSync(path.join(root, 'shared/listings.json'), 'utf8'))
 const categories = JSON.parse(fs.readFileSync(path.join(root, 'shared/categories.json'), 'utf8'))
 const categorySlugs = new Set(categories.map((category) => category.slug))
@@ -28,43 +32,13 @@ const API_VERSION = process.env.CASHFREE_API_VERSION || '2023-08-01'
 const app = express()
 app.disable('x-powered-by')
 app.use(cors())
-app.use(express.json({ limit: '8mb' }))
+app.use(express.json({ limit: '12mb' }))
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.setHeader('X-Frame-Options', 'SAMEORIGIN')
   next()
 })
-
-function defaultDb() {
-  return { listings: [], orders: [], bookings: [] }
-}
-
-async function readDb() {
-  try {
-    const raw = await fs.promises.readFile(dbFile, 'utf8')
-    const parsed = JSON.parse(raw)
-    return {
-      listings: Array.isArray(parsed.listings) ? parsed.listings : [],
-      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
-      bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
-    }
-  } catch {
-    return defaultDb()
-  }
-}
-
-let writeQueue = Promise.resolve()
-
-function writeDb(db) {
-  writeQueue = writeQueue.then(async () => {
-    await fs.promises.mkdir(path.dirname(dbFile), { recursive: true })
-    const temp = `${dbFile}.${process.pid}.tmp`
-    await fs.promises.writeFile(temp, JSON.stringify(db, null, 2))
-    await fs.promises.rename(temp, dbFile)
-  })
-  return writeQueue
-}
 
 async function allListings() {
   const db = await readDb()
@@ -161,8 +135,22 @@ function makeBooking(order) {
   }
 }
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, service: 'renthood-api', cashfree: CASHFREE_ENV })
+app.get('/api/health', async (_req, res) => {
+  let databaseOk = true
+  if (hasSupabase) {
+    try {
+      await readDb()
+    } catch (error) {
+      databaseOk = false
+      console.error('Health check could not reach Supabase:', error.message)
+    }
+  }
+  res.status(databaseOk ? 200 : 503).json({
+    ok: databaseOk,
+    service: 'renthood-api',
+    cashfree: CASHFREE_ENV,
+    storage: persistenceInfo(),
+  })
 })
 
 app.get('/api/config', (_req, res) => {
@@ -170,6 +158,7 @@ app.get('/api/config', (_req, res) => {
     cashfreeConfigured: hasCashfreeKeys,
     cashfreeEnvironment: CASHFREE_ENV,
     whatsappNumber: process.env.VITE_WHATSAPP_NUMBER || '919148738996',
+    storage: persistenceInfo(),
   })
 })
 
@@ -217,7 +206,7 @@ app.post('/api/listings', async (req, res, next) => {
       category,
       pricePerDay,
       deposit,
-      image: cleanString(body.image, 1_500_000) || categories.find((item) => item.slug === category).image,
+      image: cleanString(body.image, 6_000_000) || categories.find((item) => item.slug === category).image,
       location: cleanString(body.location, 80) || 'Bengaluru',
       distanceKm: 0,
       rating: 5,
@@ -243,6 +232,16 @@ app.post('/api/listings', async (req, res, next) => {
       badge: 'New listing',
       availableToday: body.availableToday !== false,
       isUserListing: true,
+    }
+
+    try {
+      listing.image = await persistListingImage(listing.image, listing.id)
+    } catch (error) {
+      console.error('Listing image upload failed:', error.message)
+      res.status(502).json({
+        error: 'The listing image could not be saved. Check the Supabase Storage bucket and try again.',
+      })
+      return
     }
 
     const db = await readDb()
@@ -473,5 +472,6 @@ if (fs.existsSync(distDir)) {
 app.listen(PORT, () => {
   console.log(`\n  RentHood API → http://localhost:${PORT}`)
   console.log(`  Cashfree: ${hasCashfreeKeys ? `${CASHFREE_ENV} keys loaded` : 'demo mode (no keys)'}`)
+  console.log(`  Storage: ${hasSupabase ? 'Supabase Postgres + Storage' : 'local JSON + embedded images'}`)
   if (!fs.existsSync(distDir)) console.log('  Frontend: run `npm run dev` for Vite HMR\n')
 })
